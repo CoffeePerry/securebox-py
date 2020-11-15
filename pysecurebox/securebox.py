@@ -15,7 +15,19 @@ ENCODING = 'utf-8'
 
 
 class SecureBox(object):
+    """SecureBox class for write and read SecureBox's boxes."""
+
     def __init__(self, file: str, password: str, fast_key_derivation: bool = False):
+        """SecureBox constructor.
+
+        :param file: SecureBox's filename.
+        :type file: str
+        :param password: SecureBox's password.
+        :type password: str
+        :param fast_key_derivation: Enable fast key derivation mode.
+        :type fast_key_derivation: bool
+        :return: SecureBox's instance.
+        """
         if file is None or (not isinstance(file, str)):
             raise Exception('file must be a filename')
         self._file = file
@@ -27,33 +39,46 @@ class SecureBox(object):
         self._key = self.derive_key(password)
 
     def __unzip_file_data(self, file_data: str) -> Tuple[bytes, bytes, bytes, bytes]:
+        """Unzip file data to salt, nonce, MAC tag and content.
+
+        :param file_data: File data.
+        :type file_data: str
+        :return: Tuple of (Salt, nonce, MAC tag and content).
+        """
         try:
             salt, nonce, tag, body = file_data.split(FILE_SEPARATOR)
         except UnsupportedOperation:
             raise Exception(f'Impossible to read: {self._file}')
+        if not salt:
+            raise Exception('salt not found')
         if not nonce:
             raise Exception('nonce not found')
         if not tag:
             raise Exception('tag not found')
         if not body:
             raise Exception('body not found')
-        if not salt:
-            raise Exception('salt not found')
         return b64decode(salt), b64decode(nonce), b64decode(tag), b64decode(body)
 
     def derive_key(self, password: str):
+        """Derive key from passed password (uses 'scrypt').
+
+        :param password: Password.
+        :type password: str
+        :return: Derived key.
+        """
         if password is None or (not isinstance(password, str) or (not password)):
             raise Exception('password param must be non empty string')
         if self._salt is None:
             self._salt = get_random_bytes(16)
         return scrypt(password, self._salt, 32, N=2 ** 14 if self._fast_key_derivation else 2 ** 20, r=8, p=1)
 
-    def append(self, content):
-        """Append passed content to the SecureBox file.
+    def append(self, data: bytes):
+        """Append passed data to the SecureBox file.
 
-        :param content: Title lines.
+        :param data: Data to append.
+        :type data: bytes
         """
-        if content is None:
+        if data is None:
             return
         plaintext = None
         if not path.exists(self._file):
@@ -64,7 +89,7 @@ class SecureBox(object):
         with open(self._file, 'r+', encoding=ENCODING) as file:
             cipher = AES.new(self._key, AES.MODE_OCB)
             cipher.update(self._key + cipher.nonce)
-            ciphertext, tag = cipher.encrypt_and_digest(plaintext + content if plaintext else content)
+            ciphertext, tag = cipher.encrypt_and_digest(plaintext + data if plaintext else data)
 
             file.truncate(0)
             file.write(f'{b64encode(self._salt).decode(encoding=ENCODING)}{FILE_SEPARATOR}'
@@ -72,10 +97,10 @@ class SecureBox(object):
                        f'{b64encode(tag).decode(encoding=ENCODING)}{FILE_SEPARATOR}'
                        f'{b64encode(ciphertext).decode(encoding=ENCODING)}')
 
-    def read(self):
-        """Read all SecureBox file's contents.
+    def read(self) -> bytes:
+        """Read SecureBox file data.
 
-        :return: SecureBox file's contents.
+        :return: SecureBox file data (bytes).
         """
         with open(self._file, 'r', encoding=ENCODING) as file:
             file_data = file.read()
