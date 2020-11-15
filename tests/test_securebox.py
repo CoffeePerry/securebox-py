@@ -4,28 +4,23 @@ from pysecurebox.securebox import SecureBox
 
 from os import path, makedirs
 
-INSTANCE_DIR = 'instance'
+DIR_INSTANCE = 'instance'
+FILE_TEST = path.join(DIR_INSTANCE, 'test.box')
 PASSWORD = 'secret'
 
-salt = None
 
-
-def test_secure_box_append():
-    if not path.isdir(INSTANCE_DIR):
-        makedirs(INSTANCE_DIR)
-    secure_box = SecureBox(path.join(INSTANCE_DIR, 'test.bin'), PASSWORD, salt)
+def test_secure_box_write_read():
+    if not path.isdir(DIR_INSTANCE):
+        makedirs(DIR_INSTANCE)
+    secure_box = SecureBox(FILE_TEST, PASSWORD)
     secure_box.append(b'test_1')
+    assert (path.exists(FILE_TEST))
     secure_box.append(b'test_2')
-    assert(path.exists(path.join(INSTANCE_DIR, 'test.bin')))
-
-
-def test_secure_box_read():
-    if path.exists(path.join(INSTANCE_DIR, 'test.bin')):
-        secure_box = SecureBox(path.join(INSTANCE_DIR, 'test.bin'), PASSWORD, salt)
-        data = secure_box.read()
-        assert data
+    assert(path.exists(FILE_TEST))
+    secure_box = SecureBox(FILE_TEST, PASSWORD)
+    data = secure_box.read()
+    assert data == b'test_1test_2'
 
 
 if __name__ == '__main__':
-    test_secure_box_append()
-    test_secure_box_read()
+    test_secure_box_write_read()
