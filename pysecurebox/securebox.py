@@ -1,44 +1,48 @@
 # coding=utf-8
 
-from functools import wraps
+from Cryptodome.Cipher import AES
+from Cryptodome.Protocol.KDF import scrypt
+from Cryptodome.Random import get_random_bytes
 
+from base64 import b64encode, b64decode
+from io import UnsupportedOperation
 
-class BoxAlgo(object):
-    def __init__(self):
-        pass
+from typing import Tuple
 
-
-class BoxAlgoAES(BoxAlgo):
-    def __init__(self):
-        super(BoxAlgoAES, self).__init__()
-
-
-'''
-def refresh_checksum(wrapped):
-    @wraps(wrapped)
-    def wrapper(self, *args, **kwargs):
-        result = wrapped(self, *args, **kwargs)
-        with open(self._file, 'a+b') as file:
-            content = file.read()
-            file.write()    # TODO...
-        return result
-    return wrapper
-'''
+FILE_SEPARATOR = '.'
 
 
 class SecureBox(object):
-    def __init__(self, file: str, algo: BoxAlgo = None):
+    def __init__(self, file: str, password: str, salt: str = None):
         if file is None or (not isinstance(file, str)):
             raise Exception('file must be a filename')
         self._file = file
-        self._algo = algo
+        self._password = password
+        self._salt = salt
 
-    def create(self):
-        """Create SecureBox file."""
-        with open(self._file, 'x+b'):
-            pass
+    def get_salt(self) -> str:
+        return self._salt
 
-    # @refresh_checksum
+    def __unzip_filedata(self, filedata: str) -> Tuple[str, str, str]:
+        try:
+            nonce, tag, body = filedata.split(FILE_SEPARATOR)
+        except UnsupportedOperation:
+            raise Exception(f'Impossible to read: {self._file}')
+        if not nonce:
+            raise Exception('nonce not found')
+        if not tag:
+            raise Exception('tag not found')
+        if not body:
+            raise Exception('body not found')
+        return nonce, tag, body
+
+    def derive_key(self, password: str, fast: bool = False):
+        if password is None or (not isinstance(password, str) or (not password)):
+            raise Exception('password param must be non empty string')
+        if self._salt is None:
+            self._salt = get_random_bytes(16)
+        return scrypt(password, str(self._salt), 32, N=2 ** 14 if fast else 2 ** 20, r=8, p=1)
+
     def append(self, content):
         """Append passed content to the SecureBox file.
 
@@ -46,13 +50,28 @@ class SecureBox(object):
         """
         if content is None:
             return
-        with open(self._file, 'a+b') as file:
-            file.write(content)
+        with open(self._file, 'w+') as file:
+            plaintext = None
 
-    def read_all(self):
+            filedata = file.read()
+            if filedata:
+                nonce, tag, body = self.__unzip_filedata(filedata)
+
+                plaintext = AES.new(self.derive_key(self._password), AES.MODE_OCB, nonce=b64decode(nonce)) \
+                    .decrypt_and_verify(b64decode(body), b64decode(tag))
+
+            cipher = AES.new(self.derive_key(self._password), AES.MODE_OCB)
+            ciphertext, tag = cipher.encrypt_and_digest(plaintext + content if plaintext else content)
+            file.write(f'{b64encode(cipher.nonce)}{FILE_SEPARATOR}{b64encode(tag)}{FILE_SEPARATOR}'
+                       f'{b64encode(ciphertext)}')
+
+    def read(self):
         """Read all SecureBox file's contents.
 
         :return: SecureBox file's contents.
         """
-        with open(self._file, 'r+b') as file:
-            return file.read()
+        with open(self._file, 'r') as file:
+            nonce, tag, body = self.__unzip_filedata(file.read())
+
+            return AES.new(self.derive_key(self._password), AES.MODE_OCB, nonce=b64decode(nonce)) \
+                .decrypt_and_verify(b64decode(body), b64decode(tag))
