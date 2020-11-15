@@ -10,12 +10,12 @@ from os import path
 
 from typing import Tuple
 
-FILE_SEPARATOR = '.'
-ENCODING = 'utf-8'
-
 
 class SecureBox(object):
     """SecureBox class for write and read SecureBox's boxes."""
+
+    FILE_SEPARATOR = '.'
+    ENCODING = 'utf-8'
 
     def __init__(self, file: str, password: str, fast_key_derivation: bool = False):
         """SecureBox constructor.
@@ -33,7 +33,7 @@ class SecureBox(object):
         self._file = file
         self._salt = None
         if path.exists(self._file):
-            with open(self._file, 'r', encoding=ENCODING) as file:
+            with open(self._file, 'r', encoding=self.ENCODING) as file:
                 self._salt, _, _, _ = self.__unzip_file_data(file.read())
         self._fast_key_derivation = fast_key_derivation
         self._key = self.derive_key(password)
@@ -46,7 +46,7 @@ class SecureBox(object):
         :return: Tuple of (Salt, nonce, MAC tag and content).
         """
         try:
-            salt, nonce, tag, body = file_data.split(FILE_SEPARATOR)
+            salt, nonce, tag, body = file_data.split(self.FILE_SEPARATOR)
         except UnsupportedOperation:
             raise Exception(f'Impossible to read: {self._file}')
         if not salt:
@@ -82,27 +82,27 @@ class SecureBox(object):
             return
         plaintext = None
         if not path.exists(self._file):
-            with open(self._file, 'x', encoding=ENCODING):
+            with open(self._file, 'x', encoding=self.ENCODING):
                 pass
         else:
             plaintext = self.read()
-        with open(self._file, 'r+', encoding=ENCODING) as file:
+        with open(self._file, 'r+', encoding=self.ENCODING) as file:
             cipher = AES.new(self._key, AES.MODE_OCB)
             cipher.update(self._key + cipher.nonce)
             ciphertext, tag = cipher.encrypt_and_digest(plaintext + data if plaintext else data)
 
             file.truncate(0)
-            file.write(f'{b64encode(self._salt).decode(encoding=ENCODING)}{FILE_SEPARATOR}'
-                       f'{b64encode(cipher.nonce).decode(encoding=ENCODING)}{FILE_SEPARATOR}'
-                       f'{b64encode(tag).decode(encoding=ENCODING)}{FILE_SEPARATOR}'
-                       f'{b64encode(ciphertext).decode(encoding=ENCODING)}')
+            file.write(f'{b64encode(self._salt).decode(encoding=self.ENCODING)}{self.FILE_SEPARATOR}'
+                       f'{b64encode(cipher.nonce).decode(encoding=self.ENCODING)}{self.FILE_SEPARATOR}'
+                       f'{b64encode(tag).decode(encoding=self.ENCODING)}{self.FILE_SEPARATOR}'
+                       f'{b64encode(ciphertext).decode(encoding=self.ENCODING)}')
 
     def read(self) -> bytes:
         """Read SecureBox file data.
 
         :return: SecureBox file data (bytes).
         """
-        with open(self._file, 'r', encoding=ENCODING) as file:
+        with open(self._file, 'r', encoding=self.ENCODING) as file:
             file_data = file.read()
             _, nonce, tag, body = self.__unzip_file_data(file_data)
 
