@@ -1,6 +1,11 @@
 # coding=utf-8
 
+from os import path
 from setuptools import setup, find_packages
+
+this_directory = path.abspath(path.dirname(__file__))
+with open(path.join(this_directory, 'README.md'), encoding='utf-8') as file:
+    long_description = file.read()
 
 setup(
     name='pysecurebox',
@@ -8,6 +13,8 @@ setup(
     version='1.0.0',
     description='securebox-py (SecureBox for Python) is a lightweight package to create and manage consistent, '
                 'encrypted and authenticated files.',
+    long_description=long_description,
+    long_description_content_type='text/markdown',
     keywords=['security', 'files', 'encryption', 'authentication'],
     classifiers=[
         'Development Status :: 5 - Production/Stable',
