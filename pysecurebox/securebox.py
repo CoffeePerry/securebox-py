@@ -6,7 +6,7 @@ from Cryptodome.Random import get_random_bytes
 
 from base64 import b64encode, b64decode
 from io import UnsupportedOperation
-from os import path
+from os import path, remove
 
 from typing import Tuple
 
@@ -36,7 +36,7 @@ class SecureBox(object):
             with open(self._file, 'r', encoding=self.ENCODING) as file:
                 self._salt, _, _, _ = self.__unzip_file_data(file.read())
         self._fast_key_derivation = fast_key_derivation
-        self._key = self.derive_key(password)
+        self._key = self.__derive_key(password)
 
     def __unzip_file_data(self, file_data: str) -> Tuple[bytes, bytes, bytes, bytes]:
         """Unzip file data to salt, nonce, MAC tag and content.
@@ -59,7 +59,7 @@ class SecureBox(object):
             raise Exception('body not found')
         return b64decode(salt), b64decode(nonce), b64decode(tag), b64decode(body)
 
-    def derive_key(self, password: str):
+    def __derive_key(self, password: str):
         """Derive key from passed password (uses 'scrypt').
 
         :param password: Password.
@@ -71,6 +71,42 @@ class SecureBox(object):
         if self._salt is None:
             self._salt = get_random_bytes(16)
         return scrypt(password, self._salt, 32, N=2 ** 14 if self._fast_key_derivation else 2 ** 20, r=8, p=1)
+
+    def delete(self) -> None:
+        """Delete the SecureBox file.
+        """
+        remove(self._file)
+
+    def read(self) -> bytes:
+        """Read SecureBox file data.
+
+        :return: SecureBox file data (bytes).
+        """
+        with open(self._file, 'r', encoding=self.ENCODING) as file:
+            file_data = file.read()
+            _, nonce, tag, body = self.__unzip_file_data(file_data)
+
+            cipher = AES.new(self._key, AES.MODE_OCB, nonce=nonce)
+            cipher.update(self._key + cipher.nonce)
+            return cipher.decrypt_and_verify(body, tag)
+
+    def overwrite(self, data: bytes):
+        """Overwrite the SecureBox file data with passed data.
+
+        :param data: Data to write.
+        :type data: bytes
+        """
+        if data is None:
+            return
+        with open(self._file, 'w', encoding=self.ENCODING) as file:
+            cipher = AES.new(self._key, AES.MODE_OCB)
+            cipher.update(self._key + cipher.nonce)
+            ciphertext, tag = cipher.encrypt_and_digest(data)
+
+            file.write(f'{b64encode(self._salt).decode(encoding=self.ENCODING)}{self.FILE_SEPARATOR}'
+                       f'{b64encode(cipher.nonce).decode(encoding=self.ENCODING)}{self.FILE_SEPARATOR}'
+                       f'{b64encode(tag).decode(encoding=self.ENCODING)}{self.FILE_SEPARATOR}'
+                       f'{b64encode(ciphertext).decode(encoding=self.ENCODING)}')
 
     def append(self, data: bytes):
         """Append passed data to the SecureBox file.
@@ -96,16 +132,3 @@ class SecureBox(object):
                        f'{b64encode(cipher.nonce).decode(encoding=self.ENCODING)}{self.FILE_SEPARATOR}'
                        f'{b64encode(tag).decode(encoding=self.ENCODING)}{self.FILE_SEPARATOR}'
                        f'{b64encode(ciphertext).decode(encoding=self.ENCODING)}')
-
-    def read(self) -> bytes:
-        """Read SecureBox file data.
-
-        :return: SecureBox file data (bytes).
-        """
-        with open(self._file, 'r', encoding=self.ENCODING) as file:
-            file_data = file.read()
-            _, nonce, tag, body = self.__unzip_file_data(file_data)
-
-            cipher = AES.new(self._key, AES.MODE_OCB, nonce=nonce)
-            cipher.update(self._key + cipher.nonce)
-            return cipher.decrypt_and_verify(body, tag)
