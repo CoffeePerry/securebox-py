@@ -90,7 +90,7 @@ class SecureBox(object):
             cipher.update(self._key + cipher.nonce)
             return cipher.decrypt_and_verify(body, tag)
 
-    def overwrite(self, data: bytes):
+    def overwrite(self, data: bytes) -> None:
         """Overwrite the SecureBox file data with passed data.
 
         :param data: Data to write.
@@ -108,7 +108,7 @@ class SecureBox(object):
                        f'{b64encode(tag).decode(encoding=self.ENCODING)}{self.FILE_SEPARATOR}'
                        f'{b64encode(ciphertext).decode(encoding=self.ENCODING)}')
 
-    def append(self, data: bytes):
+    def append(self, data: bytes) -> None:
         """Append passed data to the SecureBox file.
 
         :param data: Data to append.
