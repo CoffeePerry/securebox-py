@@ -1,3 +1,3 @@
 # coding=utf-8
 
-from securebox import SecureBox
+from pysecurebox.securebox import SecureBox
