@@ -20,7 +20,7 @@ setup(
     author_email='perinisimone98@gmail.com',
     license='MIT',
     url='https://github.com/CoffeePerry/securebox-py',
-    download_url='https://github.com/CoffeePerry/securebox-py',
+    download_url='https://github.com/CoffeePerry/securebox-py/archive/1.0.0.tar.gz',
     install_requires=['pycryptodomex==3.9.9'],
     setup_requires=['pytest-runner==5.2'],
     tests_require=['pytest==4.4.1'],
