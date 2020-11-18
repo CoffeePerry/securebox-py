@@ -21,7 +21,8 @@ setup(
         'Intended Audience :: Developers',
         'Topic :: Security :: Cryptography',
         'License :: OSI Approved :: MIT License',
-        'Programming Language :: Python :: 3',
+        'Operating System :: OS Independent',
+        'Programming Language :: Python :: 3'
     ],  # https://pypi.org/classifiers/
     author='Simone Perini',
     author_email='perinisimone98@gmail.com',
